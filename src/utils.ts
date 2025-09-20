@@ -23,13 +23,18 @@ export const formatApiError = (error: unknown) => {
 export const toResult = (promise: Promise<AxiosResponse>) =>
   ResultAsync.fromPromise(promise, formatApiError);
 
-export const client = (({ QASE_API_TOKEN }) => {
+const resolveApiToken = () => {
+  const { QASE_API_TOKEN } = process.env;
   if (!QASE_API_TOKEN) {
     throw new Error(
       'QASE_API_TOKEN environment variable is required. Please set it before running the server.',
     );
   }
-  return new QaseApi({
-    token: QASE_API_TOKEN,
-  });
-})(process.env);
+  return QASE_API_TOKEN;
+};
+
+export const qaseApiToken = resolveApiToken();
+
+export const client = new QaseApi({
+  token: qaseApiToken,
+});

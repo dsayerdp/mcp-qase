@@ -1,7 +1,10 @@
-import { TestCaseCreate } from 'qaseio';
+import { TestCaseCreate, TestCaseUpdate } from 'qaseio';
 import { z } from 'zod';
 import { client, toResult } from '../utils.js';
 import { apply, pipe } from 'ramda';
+import { resolveSystemFieldOptionId } from '../system-field-options.js';
+
+const enumValueSchema = z.union([z.number(), z.string().min(1)]);
 
 export const GetCasesSchema = z.object({
   code: z.string(),
@@ -53,15 +56,15 @@ export const UpdateCaseSchema = z.object({
   description: z.string().optional(),
   preconditions: z.string().optional(),
   postconditions: z.string().optional(),
-  severity: z.number().optional(),
-  priority: z.number().optional(),
-  type: z.number().optional(),
-  behavior: z.number().optional(),
-  automation: z.number().optional(),
-  status: z.number().optional(),
+  severity: enumValueSchema.optional(),
+  priority: enumValueSchema.optional(),
+  type: enumValueSchema.optional(),
+  behavior: enumValueSchema.optional(),
+  automation: enumValueSchema.optional(),
+  status: enumValueSchema.optional(),
   suite_id: z.number().optional(),
   milestone_id: z.number().optional(),
-  layer: z.number().optional(),
+  layer: enumValueSchema.optional(),
   is_flaky: z.boolean().optional(),
   params: z
     .array(
@@ -153,27 +156,71 @@ export const createCase = pipe(
   toResult,
 );
 
-const convertCaseData = (
+const convertCaseData = async (
   data: Omit<z.infer<typeof UpdateCaseSchema>, 'code' | 'id'>,
-) => ({
-  ...data,
-  is_flaky: data.is_flaky === undefined ? undefined : data.is_flaky ? 1 : 0,
-  params: data.params
-    ? data.params.reduce(
-        (acc, param) => ({
-          ...acc,
-          [param.title]: [param.value],
-        }),
-        {},
-      )
-    : undefined,
-});
+): Promise<TestCaseUpdate> => {
+  const numericFields: Partial<
+    Record<
+      keyof typeof data,
+      | 'severity'
+      | 'priority'
+      | 'behavior'
+      | 'type'
+      | 'status'
+      | 'automation'
+      | 'layer'
+    >
+  > = {
+    severity: 'severity',
+    priority: 'priority',
+    behavior: 'behavior',
+    type: 'type',
+    status: 'status',
+    automation: 'automation',
+    layer: 'layer',
+  } as const;
+
+  const resolvedFieldEntries = await Promise.all(
+    Object.entries(numericFields).map(async ([schemaKey, fieldKey]) => {
+      const value = data[schemaKey as keyof typeof data];
+      if (value === undefined) {
+        return undefined;
+      }
+      const resolvedValue = await resolveSystemFieldOptionId(
+        fieldKey as Parameters<typeof resolveSystemFieldOptionId>[0],
+        value as string | number,
+      );
+      return [schemaKey, resolvedValue] as const;
+    }),
+  );
+
+  const resolvedFieldMap = Object.fromEntries(
+    resolvedFieldEntries.filter((entry): entry is [keyof typeof data, number] => !!entry),
+  );
+
+  const payload = {
+    ...data,
+    ...resolvedFieldMap,
+    is_flaky: data.is_flaky === undefined ? undefined : data.is_flaky ? 1 : 0,
+    params: data.params
+      ? data.params.reduce(
+          (acc, param) => ({
+            ...acc,
+            [param.title]: [param.value],
+          }),
+          {},
+        )
+      : undefined,
+  };
+
+  return payload as unknown as TestCaseUpdate;
+};
 
 export const updateCase = pipe(
-  (
+  async (
     code: string,
     id: number,
     data: Omit<z.infer<typeof UpdateCaseSchema>, 'code' | 'id'>,
-  ) => client.cases.updateCase(code, id, convertCaseData(data)),
+  ) => client.cases.updateCase(code, id, await convertCaseData(data)),
   toResult,
 );
