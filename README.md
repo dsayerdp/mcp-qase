@@ -121,31 +121,30 @@ To use with Claude Desktop, add the server config:
 
 ### Claude Code
 
-With the Docker container running:
-
-1. **Docker Exec Method (Recommended):**
-   Edit `~/Library/Application Support/Claude/claude_code_config.json` and add:
+1. **Local Node Method (Recommended):**
+   Edit `~/.claude/claude_desktop_config.json` and add:
    ```json
    {
      "mcpServers": {
-       "mcp-qase": {
-         "command": "docker",
-         "args": ["exec", "-i", "mcp-qase-mcp-qase-1", "node", "./build/index.js"]
+       "qase": {
+         "command": "node",
+         "args": ["/absolute/path/to/mcp-qase/build/index.js"],
+         "env": {
+           "QASE_API_TOKEN": "your-api-token-here"
+         }
        }
      }
    }
    ```
 
-2. **Alternative - Local Node Method:**
-   If you prefer running locally without Docker:
+2. **Alternative - Docker Method:**
+   With the Docker container running:
    ```json
    {
      "mcpServers": {
-       "mcp-qase": {
-         "command": "/path/to/mcp-qase/build/index.js",
-         "env": {
-           "QASE_API_TOKEN": "<YOUR_TOKEN>"
-         }
+       "qase": {
+         "command": "docker",
+         "args": ["exec", "-i", "mcp-qase-mcp-qase-1", "node", "./build/index.js"]
        }
      }
    }
