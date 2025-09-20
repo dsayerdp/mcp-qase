@@ -16,7 +16,11 @@
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix"
+    "lint:fix": "eslint . --ext .ts --fix",
+    "docker:build": "docker compose build",
+    "docker:start": "docker compose up --build",
+    "docker:start:detached": "docker compose up --build -d",
+    "docker:stop": "docker compose down"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",

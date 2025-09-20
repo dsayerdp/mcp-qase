@@ -70,6 +70,33 @@ For development with auto-rebuild:
 npm run watch
 ```
 
+## Docker
+
+1. Copy `.env.example` to `.env` and add your Qase API token.
+2. Generate HTTPS certificates (example with [mkcert](https://github.com/FiloSottile/mkcert)):
+   ```bash
+   brew install mkcert nss   # macOS example
+   mkcert -install
+   mkdir -p certs
+   mkcert -cert-file certs/localhost.pem \
+          -key-file certs/localhost-key.pem \
+          localhost 127.0.0.1 ::1
+   ```
+   The cert files stay outside of git thanks to the `certs/` entry in `.gitignore`.
+3. Start the container (builds the image on first run):
+   ```bash
+   npm run docker:start
+   ```
+   The server exposes HTTPS on `https://localhost:3333` (mapped from port 3000 in the container).
+4. Stop the container with:
+   ```bash
+   npm run docker:stop
+   ```
+5. For background mode, use:
+   ```bash
+   npm run docker:start:detached
+   ```
+
 ## Installation
 
 ### Claude Desktop
@@ -91,6 +118,55 @@ To use with Claude Desktop, add the server config:
   }
 }
 ```
+
+### Claude Code
+
+With the Docker container running:
+
+1. **Docker Exec Method (Recommended):**
+   Edit `~/Library/Application Support/Claude/claude_code_config.json` and add:
+   ```json
+   {
+     "mcpServers": {
+       "mcp-qase": {
+         "command": "docker",
+         "args": ["exec", "-i", "mcp-qase-mcp-qase-1", "node", "./build/index.js"]
+       }
+     }
+   }
+   ```
+
+2. **Alternative - Local Node Method:**
+   If you prefer running locally without Docker:
+   ```json
+   {
+     "mcpServers": {
+       "mcp-qase": {
+         "command": "/path/to/mcp-qase/build/index.js",
+         "env": {
+           "QASE_API_TOKEN": "<YOUR_TOKEN>"
+         }
+       }
+     }
+   }
+   ```
+
+After editing the config, restart Claude Code to pick up the new server. The MCP tools will then be available for interacting with your Qase projects.
+
+### Codex CLI
+
+Once `npm run docker:start` is running, Codex can connect in either of two ways:
+
+1. **Via the HTTPS endpoint** (keeps the Dockerized proxy in play):
+   ```bash
+   codex mcp add mcp-qase -- npx mcp-proxy --endpoint https://localhost:3333
+   ```
+   If your Node trust store does not include the mkcert CA, append `--ca "$(mkcert -CAROOT)/rootCA.pem"` to the command above.
+2. **Directly exec into the container** (bypasses HTTPS and attaches to the raw MCP server):
+   ```bash
+   codex mcp add mcp-qase -- docker exec -i mcp-qase-mcp-qase-1 node ./build/index.js
+   ```
+   Replace `mcp-qase-mcp-qase-1` with the container name reported by `docker compose ps` if your project directory name changes.
 
 ### Cursor
 
